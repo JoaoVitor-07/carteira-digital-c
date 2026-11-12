@@ -1,0 +1,288 @@
+
+#include <stdio.h>
+#include <string.h>
+
+#define MAX 100
+#define HIST 5
+#define CONTAS 3
+
+typedef struct {
+    char tipo[20];
+    char num[10];
+    float saldo;
+    char hist[HIST][100];
+    int qtdHist;
+} Conta;
+
+typedef struct {
+    char nome[100];
+    Conta contas[CONTAS];
+    int empSolicitado;
+} Cliente;
+
+float saldoTotal(Cliente c) {
+    float total = 0;
+
+    for (int i = 0; i < CONTAS; i++) {
+        total += c.contas[i].saldo;
+    }
+
+    return total;
+}
+
+void addHist(Conta *c, char desc[]) {
+    if (c->qtdHist < HIST) {
+        strcpy(c->hist[c->qtdHist], desc);
+        c->qtdHist++;
+    } else {
+        for (int i = 0; i < HIST - 1; i++) {
+            strcpy(c->hist[i], c->hist[i + 1]);
+        }
+
+        strcpy(c->hist[HIST - 1], desc);
+    }
+}
+
+int aptoEmp(Cliente c) {
+    if (c.contas[2].saldo > 0 &&
+        c.empSolicitado == 0) {
+        return 1;
+    }
+
+    return 0;
+}
+
+float limiteEmp(Cliente c) {
+    return saldoTotal(c) * 10 * 0.25;
+}
+
+void abrirBanco(Cliente cli[], int *n) {
+    printf("\nQUANTOS CLIENTES? ");
+    scanf("%d", n);
+
+    if (*n <= 0 || *n > MAX) {
+        printf("\nQuantidade invalida!\n");
+        *n = 0;
+        return;
+    }
+
+    for (int i = 0; i < *n; i++) {
+        printf("\n========== CLIENTE %d ==========\n", i + 1);
+
+        printf("Nome: ");
+        scanf(" %99[^\n]", cli[i].nome);
+
+        cli[i].empSolicitado = 0;
+
+        for (int j = 0; j < CONTAS; j++) {
+            sprintf(cli[i].contas[j].num,
+                    "%04d-%02d", 1000 + i, j + 1);
+
+            cli[i].contas[j].qtdHist = 0;
+
+            if (j == 0) {
+                strcpy(cli[i].contas[j].tipo, "Corrente");
+            } else if (j == 1) {
+                strcpy(cli[i].contas[j].tipo, "Salario");
+            } else {
+                strcpy(cli[i].contas[j].tipo, "Poupanca");
+            }
+
+            printf("\nConta %s (%s)\n",
+                   cli[i].contas[j].num,
+                   cli[i].contas[j].tipo);
+
+            printf("Saldo: R$ ");
+            scanf("%f", &cli[i].contas[j].saldo);
+
+            char desc[100];
+
+            sprintf(desc, "Abertura: R$ %.2f",
+                    cli[i].contas[j].saldo);
+
+            addHist(&cli[i].contas[j], desc);
+        }
+
+        printf("\nSaldo total: R$ %.2f\n",
+               saldoTotal(cli[i]));
+
+        if (aptoEmp(cli[i])) {
+            printf("Limite de emprestimo: R$ %.2f\n",
+                   limiteEmp(cli[i]));
+
+            char op;
+
+            printf("Deseja emprestimo? (S/N): ");
+            scanf(" %c", &op);
+
+            if (op == 'S' || op == 's') {
+                float valor;
+
+                printf("Valor desejado: R$ ");
+                scanf("%f", &valor);
+
+                if (valor > 0 &&
+                    valor <= limiteEmp(cli[i])) {
+
+                    cli[i].contas[0].saldo += valor;
+                    cli[i].empSolicitado = 1;
+
+                    char desc[100];
+
+                    sprintf(desc, "Emprestimo: R$ %.2f", valor);
+
+                    addHist(&cli[i].contas[0], desc);
+
+                    printf("Emprestimo aprovado!\n");
+                } else {
+                    printf("Valor invalido!\n");
+                }
+            }
+        } else {
+            printf("Cliente nao apto para emprestimo.\n");
+        }
+    }
+
+    printf("\nBANCO ABERTO!\n");
+}
+
+void historicoBanco(Cliente cli[], int n) {
+    float totalBanco = 0;
+
+    printf("\n========== HISTORICO DO BANCO ==========\n");
+
+    for (int i = 0; i < n; i++) {
+        totalBanco += saldoTotal(cli[i]);
+
+        printf("\nCliente: %s\n", cli[i].nome);
+
+        for (int j = 0; j < CONTAS; j++) {
+            printf("\nConta: %s\n", cli[i].contas[j].num);
+            printf("Tipo: %s\n", cli[i].contas[j].tipo);
+            printf("Saldo: R$ %.2f\n", cli[i].contas[j].saldo);
+
+            printf("Movimentacoes:\n");
+
+            for (int k = 0; k < cli[i].contas[j].qtdHist; k++) {
+                printf("- %s\n", cli[i].contas[j].hist[k]);
+            }
+        }
+    }
+
+    printf("\n========== RELATORIO GERAL ==========\n");
+
+    printf("\nSALDO TOTAL DO BANCO: R$ %.2f\n", totalBanco);
+
+    printf("\nCLIENTES APTOS PARA EMPRESTIMO:\n");
+
+    int encontrou = 0;
+
+    for (int i = 0; i < n; i++) {
+        if (aptoEmp(cli[i])) {
+            printf("- %s | Limite: R$ %.2f\n",
+                   cli[i].nome, limiteEmp(cli[i]));
+            encontrou = 1;
+        }
+    }
+
+    if (!encontrou) {
+        printf("Nenhum cliente apto.\n");
+    }
+
+    printf("\nCLIENTES NEGATIVADOS:\n");
+
+    encontrou = 0;
+
+    for (int i = 0; i < n; i++) {
+        int negativo = 0;
+
+        for (int j = 0; j < CONTAS; j++) {
+            if (cli[i].contas[j].saldo < 0) {
+                negativo = 1;
+            }
+        }
+
+        if (negativo) {
+            printf("- %s\n", cli[i].nome);
+            encontrou = 1;
+        }
+    }
+
+    if (!encontrou) {
+        printf("Nenhum cliente negativado.\n");
+    }
+
+    printf("\nCLIENTES PARA CAPITALIZACAO:\n");
+
+    encontrou = 0;
+
+    for (int i = 0; i < n; i++) {
+        if (cli[i].contas[2].saldo > 0 &&
+            saldoTotal(cli[i]) > 0) {
+
+            printf("- %s | Poupanca: R$ %.2f\n",
+                   cli[i].nome, cli[i].contas[2].saldo);
+
+            encontrou = 1;
+        }
+    }
+
+    if (!encontrou) {
+        printf("Nenhum cliente para capitalizacao.\n");
+    }
+}
+
+int main() {
+    Cliente cli[MAX];
+
+    int op, aberto = 0, n = 0;
+
+    do {
+        printf("\n========== MENU ==========\n");
+        printf("1 - Abrir banco\n");
+        printf("2 - Historico do banco\n");
+        printf("3 - Sair\n");
+        printf("Opcao: ");
+
+        scanf("%d", &op);
+
+        switch (op) {
+            case 1:
+                if (aberto == 0) {
+                    abrirBanco(cli, &n);
+
+                    if (n > 0) {
+                        aberto = 1;
+                    }
+                } else {
+                    printf("\nBanco ja aberto!\n");
+                }
+                break;
+
+            case 2:
+                if (aberto == 1) {
+                    historicoBanco(cli, n);
+                } else {
+                    printf("\nAbra o banco primeiro!\n");
+                }
+                break;
+
+            case 3:
+                if (aberto == 1) {
+                    printf("\nENCERRANDO BANCO...\n");
+                    historicoBanco(cli, n);
+                } else {
+                    printf("\nBanco nao foi aberto!\n");
+                }
+
+                printf("\nPrograma encerrado!\n");
+                break;
+
+            default:
+                printf("\nOpcao invalida!\n");
+        }
+
+    } while (op != 3);
+
+    return 0;
+}
